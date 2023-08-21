@@ -27,6 +27,7 @@ pub struct Runner {
 
 impl Runner {
     pub fn from_config(config: Config) -> Self {
+        tracing::info!("config: {:?}", config);
         let (shutdown_sender, shutdown_recv) = channel(false);
         ctrlc::set_handler(move || {
             tracing::info!("shutting down");

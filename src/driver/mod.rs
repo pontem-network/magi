@@ -8,6 +8,7 @@ use ethers::{
     providers::{Http, Middleware, Provider},
     types::{Address, BlockId, BlockNumber},
 };
+use ethers::types::U64;
 use eyre::Result;
 use reqwest::Url;
 use tokio::{
@@ -63,6 +64,7 @@ pub struct Driver<E: Engine> {
 
 impl Driver<EngineApi> {
     pub async fn from_config(config: Config, shutdown_recv: watch::Receiver<bool>) -> Result<Self> {
+        tracing::info!("driver from config");
         let client = reqwest::ClientBuilder::new()
             .timeout(Duration::from_secs(5))
             .build()?;
@@ -70,7 +72,7 @@ impl Driver<EngineApi> {
         let http = Http::new_with_client(Url::parse(&config.l2_rpc_url)?, client);
         let provider = Provider::new(http);
 
-        let block_id = BlockId::Number(BlockNumber::Finalized);
+        let block_id = BlockId::Number(BlockNumber::Number(U64::from(0)));
         let finalized_block = provider.get_block_with_txs(block_id).await?;
 
         let head = finalized_block
@@ -90,6 +92,11 @@ impl Driver<EngineApi> {
 
         tracing::info!("starting from head: {:?}", finalized_head.hash);
 
+        tracing::info!("finalized_epoch.number: {:?}", finalized_epoch.number);
+        tracing::info!("config.chain.channel_timeout: {:?}", config.chain.channel_timeout);
+        tracing::info!("config.chain.l2_chain_id: {:?}", config.chain.l2_chain_id);
+        tracing::info!("config: {:?}", config);
+        tracing::info!("finalized_head.number : {:?}", finalized_head.number);
         let config = Arc::new(config);
         let chain_watcher = ChainWatcher::new(
             finalized_epoch.number - config.chain.channel_timeout,
@@ -137,12 +144,12 @@ impl Driver<EngineApi> {
 impl<E: Engine> Driver<E> {
     /// Runs the Driver
     pub async fn start(&mut self) -> Result<()> {
+        tracing::info!("starting driver");
         self.await_engine_ready().await;
         self.chain_watcher.start()?;
 
         loop {
             self.check_shutdown().await;
-
             if let Err(err) = self.advance().await {
                 tracing::error!("fatal error: {:?}", err);
                 self.shutdown().await;

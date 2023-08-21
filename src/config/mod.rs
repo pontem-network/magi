@@ -251,6 +251,43 @@ impl ChainConfig {
         }
     }
 
+    pub fn optimism_devnet() -> Self {
+        Self {
+            network: "optimism_devnet".to_string(),
+            l1_chain_id: 900,
+            l2_chain_id: 901,
+            l1_start_epoch: Epoch {
+                hash: hash("0xc8f0f2bbf5adf60555b23950c53678267add311b7fa05fdf4ab24e7e58b62694"),
+                number: 0,
+                timestamp: 1692627076,
+            },
+            l2_genesis: BlockInfo {
+                hash: hash("0xa63000d0f18b5b26409b91ebd0145df4257dfd601bdc3853d46e3576dea3dc49"),
+                number: 0,
+                parent_hash: H256::zero(),
+                timestamp: 1692627076,
+            },
+            system_config: SystemConfig {
+                batch_sender: addr("0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+                gas_limit: U256::from(30000000),
+                l1_fee_overhead: U256::from(188),
+                l1_fee_scalar: U256::from(684000),
+                unsafe_block_signer: addr("0xAAAA45d9549EDA09E70937013520214382Ffc4A2"),
+            },
+            batch_inbox: addr("0xff00000000000000000000000000000000000000"),
+            deposit_contract: addr("0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"),
+            system_config_contract: addr("0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"),
+            l2_to_l1_message_passer: addr("0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"),
+            max_channel_size: 100_000_000,
+            channel_timeout: 0,
+            seq_window_size: 0,
+            max_seq_drift: 600,
+            blocktime: 2,
+            regolith_time: 0,
+        }
+    }
+
+
     pub fn optimism_goerli() -> Self {
         Self {
             network: "optimism-goerli".to_string(),

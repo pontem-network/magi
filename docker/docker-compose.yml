@@ -43,8 +43,8 @@ services:
       - .env
     ports:
       - 8551:8551
-      - 8545:8545
-      - 8546:8546
+      - 18545:8545
+      - 18546:8546
     volumes:
       - ./:/scripts
       - data:/data

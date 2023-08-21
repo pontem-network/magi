@@ -84,6 +84,7 @@ impl State {
     }
 
     fn prune(&mut self) {
+        tracing::info!("self.safe_epoch.number : {}", self.safe_epoch.number);
         let prune_until = self.safe_epoch.number - self.config.chain.seq_window_size;
         while let Some((block_num, block_hash)) = self.l1_hashes.first_key_value() {
             if *block_num >= prune_until {

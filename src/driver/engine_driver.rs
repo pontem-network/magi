@@ -122,6 +122,7 @@ impl<E: Engine> EngineDriver<E> {
             .forkchoice_updated(forkchoice, Some(attributes))
             .await?;
 
+        tracing::info!("update.payload_status.status: {:?}", update.payload_status.status);
         if update.payload_status.status != Status::Valid {
             eyre::bail!("invalid payload attributes");
         }

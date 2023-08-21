@@ -146,6 +146,7 @@ impl ChainWatcher {
 
     /// Starts the chain watcher at the given block numbers
     pub fn start(&mut self) -> Result<()> {
+        tracing::info!("start l1 watcher");
         if let Some(handle) = self.handle.take() {
             handle.abort();
         }
@@ -359,10 +360,11 @@ impl InnerWatcher {
         }
     }
 
+    // TODO: remove this once we have a finalized block
     async fn get_finalized(&self) -> Result<u64> {
         Ok(self
             .provider
-            .get_block(BlockNumber::Finalized)
+            .get_block(BlockNumber::Latest)
             .await?
             .ok_or(eyre::eyre!("block not found"))?
             .number
@@ -483,6 +485,8 @@ fn start_watcher(
     let (block_update_sender, block_update_receiver) = sync_channel(1000);
 
     let handle = spawn(async move {
+        tracing::info!("starting watcher with: l1_start_block: {}, l2_start_block: {}", l1_start_block, l2_start_block);
+        tracing::info!("starting watcher with: config: {:?}", config);
         let mut watcher =
             InnerWatcher::new(config, block_update_sender, l1_start_block, l2_start_block).await;
 
