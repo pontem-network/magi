@@ -147,13 +147,22 @@ impl EngineApi {
                     .header(header::AUTHORIZATION, format!("Bearer {}", jwt))
                     .json(&body)
                     .send()
-                    .map_err(|e| eyre::eyre!(e))
+                    .map_err(|e| {
+                        dbg!(&e);
+                        eyre::eyre!(e)
+                    })
                     .timeout(Duration::from_secs(2))
                     .await?
                     .json::<EngineApiResponse<P>>()
-                    .map_err(|e| eyre::eyre!(e))
+                    .map_err(|e| {
+                        dbg!(&e);
+                        eyre::eyre!(e)
+                    })
                     .timeout(Duration::from_secs(2))
-                    .map_err(|e| eyre::eyre!(e))
+                    .map_err(|e| {
+                        dbg!(&e);
+                        eyre::eyre!(e)
+                    })
                     .await
             })
             .await?;
