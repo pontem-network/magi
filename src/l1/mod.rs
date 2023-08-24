@@ -360,16 +360,9 @@ impl InnerWatcher {
         }
     }
 
-    // TODO: remove this once we have a finalized block
+    // TODO: remove this once we have a normal finalized block
     async fn get_finalized(&self) -> Result<u64> {
-        Ok(self
-            .provider
-            .get_block(BlockNumber::Latest)
-            .await?
-            .ok_or(eyre::eyre!("block not found"))?
-            .number
-            .ok_or(eyre::eyre!("block pending"))?
-            .as_u64())
+        Ok(std::cmp::max(0, self.get_head().await? - 32))
     }
 
     async fn get_head(&self) -> Result<u64> {

@@ -1,14 +1,16 @@
 use std::{
     process,
+    str::FromStr,
     sync::{mpsc::Receiver, Arc, RwLock},
     time::Duration,
 };
 
+use ethers::prelude::{Block, JsonRpcClient, ProviderError, Transaction};
+use ethers::types::{Res, H256, U256, U64};
 use ethers::{
     providers::{Http, Middleware, Provider},
     types::{Address, BlockId, BlockNumber},
 };
-use ethers::types::U64;
 use eyre::Result;
 use reqwest::Url;
 use tokio::{
@@ -62,9 +64,34 @@ pub struct Driver<E: Engine> {
     channel_timeout: u64,
 }
 
+// async fn find_tx<P: JsonRpcClient>(provider: &Provider<P>, block_number: u64) -> Option<()> {
+//     let block_id = BlockNumber::Number(block_number.into());
+//     let v = provider.get_block(block_id).await.ok()??;
+//     let tx = provider.get_block_with_txs(block_id).await.ok()??;
+//     let sync = HeadInfo::try_from(tx).ok()?;
+//     dbg!(&sync);
+//     // dbg!(&tx);
+//
+//     Some(())
+// }
+//
+// pub async fn finalized_block<P: JsonRpcClient>(provider: &Provider<P>) -> Option<u64> {
+//     let block_id = BlockId::Number(BlockNumber::Latest);
+//     let last_block = provider.get_block(block_id).await.ok()??;
+//
+//     for block in (0..last_block.number?.as_u64())
+//     // .rev()
+//     {
+//         print!("\r{block:010}");
+//         if let Some(_) = find_tx(&provider, block).await {
+//             return Some(block);
+//         }
+//     }
+//     None
+// }
+
 impl Driver<EngineApi> {
     pub async fn from_config(config: Config, shutdown_recv: watch::Receiver<bool>) -> Result<Self> {
-        tracing::info!("driver from config");
         let client = reqwest::ClientBuilder::new()
             .timeout(Duration::from_secs(5))
             .build()?;
@@ -72,32 +99,61 @@ impl Driver<EngineApi> {
         let http = Http::new_with_client(Url::parse(&config.l2_rpc_url)?, client);
         let provider = Provider::new(http);
 
-        let block_id = BlockId::Number(BlockNumber::Number(U64::from(0)));
+        let block_number = provider.get_block_number().await?;
+        let block_id = BlockId::Number(BlockNumber::Number(U64::from(block_number.as_u64() - 32)));
+        // why does sync starting from different points if we change block_id here?
+        // ... it's BlockId::Number(BlockNumber::Finilized) originally
+        // let block_id = BlockId::Number(BlockNumber::Number(U64::from(2)));
+
+        tracing::info!("block_id : {:?}", block_id);
+
         let finalized_block = provider.get_block_with_txs(block_id).await?;
 
         let head = finalized_block
             .and_then(|block| HeadInfo::try_from(block).ok())
             .unwrap_or_else(|| {
                 tracing::warn!("could not get head info. Falling back to the genesis head.");
+                todo!();
                 HeadInfo {
-                    l2_block_info: config.chain.l2_genesis,
-                    l1_epoch: config.chain.l1_start_epoch,
+                    l2_block_info: BlockInfo {
+                        number: 1,
+                        // timestamp: U256::from_str("0x64e5f0d8").unwrap().as_u64(),
+                        timestamp: 1692791000,
+                        hash: H256::from_str(
+                            "0x3c83fda92a9b6d259c87e234141d48b501f1d7532444023e72003113277fed97",
+                        )
+                            .unwrap(),
+                        parent_hash: H256::from_str(
+                            "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        )
+                            .unwrap(),
+                        ..config.chain.l2_genesis
+                    },
+                    l1_epoch: Epoch {
+                        number: 30000,
+                        timestamp: U256::from_str("0x64e5f0d8").unwrap().as_u64(),
+                        hash: H256::from_str(
+                            "0xb230a1aa3b5a2880ccdd37d27d425d444a07cf55d5bd24dbd053167ec87b47ea",
+                        )
+                            .unwrap(),
+
+                        ..config.chain.l1_start_epoch
+                    },
                     sequence_number: 0,
                 }
             });
 
+        tracing::info!("head: {:?}", head);
         let finalized_head = head.l2_block_info;
         let finalized_epoch = head.l1_epoch;
         let finalized_seq = head.sequence_number;
 
         tracing::info!("starting from head: {:?}", finalized_head.hash);
 
-        tracing::info!("finalized_epoch.number: {:?}", finalized_epoch.number);
-        tracing::info!("config.chain.channel_timeout: {:?}", config.chain.channel_timeout);
-        tracing::info!("config.chain.l2_chain_id: {:?}", config.chain.l2_chain_id);
-        tracing::info!("config: {:?}", config);
-        tracing::info!("finalized_head.number : {:?}", finalized_head.number);
         let config = Arc::new(config);
+
+        dbg!(&finalized_epoch.number);
+        dbg!(&config.chain.channel_timeout);
         let chain_watcher = ChainWatcher::new(
             finalized_epoch.number - config.chain.channel_timeout,
             finalized_head.number,
@@ -144,12 +200,12 @@ impl Driver<EngineApi> {
 impl<E: Engine> Driver<E> {
     /// Runs the Driver
     pub async fn start(&mut self) -> Result<()> {
-        tracing::info!("starting driver");
         self.await_engine_ready().await;
         self.chain_watcher.start()?;
 
         loop {
             self.check_shutdown().await;
+
             if let Err(err) = self.advance().await {
                 tracing::error!("fatal error: {:?}", err);
                 self.shutdown().await;
