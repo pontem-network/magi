@@ -194,7 +194,7 @@ impl InnerWatcher {
             let l2_provider = generate_http_provider(&config.l2_rpc_url);
 
             let block = l2_provider
-                .get_block_with_txs(l2_start_block - 1)
+                .get_block_with_txs(l2_start_block)
                 .await
                 .unwrap()
                 .unwrap();
@@ -236,6 +236,7 @@ impl InnerWatcher {
     }
 
     async fn try_ingest_block(&mut self) -> Result<()> {
+        dbg!("try_ingest_block");
         if self.current_block > self.finalized_block {
             let finalized_block = self.get_finalized().await?;
 
@@ -362,7 +363,7 @@ impl InnerWatcher {
     async fn get_finalized(&self) -> Result<u64> {
         Ok(self
             .provider
-            .get_block(BlockNumber::Finalized)
+            .get_block(BlockNumber::Latest)
             .await?
             .ok_or(eyre::eyre!("block not found"))?
             .number
